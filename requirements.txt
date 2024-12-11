@@ -1,0 +1,8 @@
+json
+numpy 
+pandas
+torch
+ultralytics
+opencv-python
+matplotlib
+openpyxl
