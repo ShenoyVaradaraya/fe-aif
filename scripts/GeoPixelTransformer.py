@@ -111,10 +111,11 @@ if __name__ == "__main__":
     latitudes, longitudes = prepare_latlon(file_path)
 
     # Initialize the transformer
-    transformer = GeoPixelTransformer(img_shape, latitudes, longitudes)
+    transformer = GeoPixelTransformer((640,640,3), latitudes, longitudes)
 
     # Example pixel points
-    pixel_points = [(1070, 6320)]
+    x = 1070
+    y = 6320
 
 
     lat,lon = transformer.pixel_to_latlon(x, y)
