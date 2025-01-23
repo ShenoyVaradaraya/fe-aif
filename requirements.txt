@@ -6,3 +6,6 @@ ultralytics
 opencv-python
 matplotlib
 openpyxl
+pyproj
+os
+tqdm

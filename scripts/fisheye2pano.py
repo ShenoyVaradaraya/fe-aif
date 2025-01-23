@@ -13,9 +13,8 @@ import time
 
 import cv2
 import numpy as np
-
-import trail_tracker as tracker
-import yolov9detect as yolo
+import perception as yolo
+import pandas as pd
 
 UNDEFINED_VALUE = float(-9999999.9)
 
@@ -73,6 +72,10 @@ def main():
                         help='FULL path of avi file')
     parser.add_argument('-i', '--inputimg', type=str, required=False, default=[],
                         help='FULL path to a single input image')
+    parser.add_argument('-s', '--start_nv', type=int, required=True, default=[],
+                        help='Starting number of views')
+    parser.add_argument('-e', '--end_nv', type=int, required=True, default=[],
+                        help='Ending number of views')
     args=parser.parse_args()
 
     # cv2.namedWindow("fisheye input", cv2.WINDOW_AUTOSIZE)
@@ -81,12 +84,12 @@ def main():
     # get height and width of the panoramic named window
     cap=cv2.VideoCapture(args.videosource)
     frame_count = 0
-    yolo_detect = yolo.yolov9_detect()
-    calib = json.load(open('fisheye_calibration_data.json'))
-    
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    detection_and_tracking = yolo.DetectandTrackingModule(fps=fps)
+    # calib = json.load(open('fisheye_calibration_data.json'))
+    dt = 0.0
     while(cap.isOpened()):
         result,img=cap.read()
-
         if result==False:
             break
 
@@ -135,10 +138,14 @@ def main():
         print("Hres = ", Hres)
         ROIimages = []
         Vres = pano_img.shape[0]
-        trackers = [tracker.ObjectTracker() for i in range(0,Nviews)]
-        results = [None for i in range(0,Nviews)]
+        # trackers = tracker.ObjectTracker(max_disappeared=30,max_trail_length=30)
 
-        for nv in range(0,Nviews):
+        # Frame details (update these based on your actual frame size and desired FPS)
+        # frame_width = 640  # Use the width of the annotated frame
+        # frame_height = 640  # Use the height of the annotated frame
+        # fps = 10  # Adjust FPS as needed
+        # out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), 10, (frame_width, frame_height))
+        for nv in range(args.start_nv, args.end_nv):
             xspan = nv*Hres
 #            print("#",nv, "=",xspan, xspan+Hres)
             if nv > 0:
@@ -153,26 +160,33 @@ def main():
             roi_sc = cv2.resize(roi, (0,0), fx=0.25, fy=0.25 )
 
             if frame_count % 300 == 0:
-                annotated_frame,det = yolo_detect.detect(roi)
-                #TODO: update the tracker with the detections and draw the trails
-                
-                # if len(det) > 0:
-                #     # results[nv] = trackers[nv].update(det)
-                #     # print("Results: ", results[nv]['trails'])
-                #     print("Detected: ", det)
-                #     # trackers[nv].draw_trails(annotated_frame, results[nv])
+                    dt += 1
+                    annotated_frame,df_existing = detection_and_tracking.detect_and_track(roi,nv,dt)
+                    # Display the annotated frame
+                    # cv2.imshow("YOLO11 Tracking", annotated_frame)
+                    # cv2.waitKey(0)
+            else:
+                print("No detections found in the frame.")
+                annotated_frame = detection_and_tracking.resize_frame(roi, target_size=640)
 
-                # Check if there are any detections
-                cv2.imshow("Annotated {0}-{1}".format(xspan, xspan + Hres), annotated_frame)
+            # Check if there are any detections
+            cv2.imshow("Annotated {0}-{1}".format(xspan, xspan + Hres), annotated_frame)
+            cv2.waitKey(1)
+            # out.write(annotated_frame)
             # cv2.imshow("{0}-{1}".format(xspan,xspan+Hres), roi_sc)
 
         k = cv2.waitKey(2)
         if k & 0xFF ==ord('q'):
+            # df_existing.to_csv('tracking_data.csv', index=False)
             break
         
     cap.release()
-    panoramic_video.release()
+    # panoramic_video.release()
+    # out.release()
     cv2.destroyAllWindows()
+
+    # df_existing.to_csv('tracking_data.csv', index=False)
+    # print(f"Output video saved as {output_video_path}")
     sys.exit(0)
     
 if __name__ == '__main__':
